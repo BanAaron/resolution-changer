@@ -1,12 +1,12 @@
 class ResolutionChanger:
     def __init__(self):
-        import PIL.Image
+        import darkdetect
         import pywintypes
         import screeninfo
+        import PIL.Image
         import win32api
         import win32con
         import pystray
-        import darkdetect
 
         self.py_win_types = pywintypes
         self.screen_info = screeninfo
