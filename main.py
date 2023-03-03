@@ -6,6 +6,7 @@ class ResolutionChanger:
         import win32api
         import win32con
         import pystray
+        import darkdetect
 
         self.py_win_types = pywintypes
         self.screen_info = screeninfo
@@ -15,7 +16,6 @@ class ResolutionChanger:
 
         self.previous_resolution = ()
 
-        self.icon_image = PIL.Image.open("icon.png")
         self.menu = (
             pystray.MenuItem(
                 "Toggle Resolution", self.toggle_resolution, default=True, visible=False
@@ -27,6 +27,11 @@ class ResolutionChanger:
             pystray.MenuItem("1280x720", lambda: self.change_resolution((1280, 720))),
             pystray.MenuItem("Quit", self.on_quit),
         )
+        if darkdetect.isDark():
+            self.icon_image = PIL.Image.open("img\\icon_white.png")
+        else:
+            self.icon_image = PIL.Image.open("img\\icon_black.png")
+
         self.icon = pystray.Icon(
             "Resolution Changer", self.icon_image, "ResChanger", self.menu
         )

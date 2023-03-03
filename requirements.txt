@@ -1,4 +1,6 @@
+darkdetect==0.8.0
 Pillow==9.4.0
 pystray==0.19.4
 pywin32==305
 screeninfo==0.8.1
+six==1.16.0
