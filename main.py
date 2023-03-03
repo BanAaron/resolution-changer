@@ -21,7 +21,9 @@ class ResolutionChanger:
                 "Toggle Resolution", self.toggle_resolution, default=True, visible=False
             ),
             pystray.MenuItem("3840x1080", lambda: self.change_resolution((3840, 1080))),
+            pystray.MenuItem("2560x1080", lambda: self.change_resolution((2560, 1080))),
             pystray.MenuItem("1920x1080", lambda: self.change_resolution((1920, 1080))),
+            pystray.MenuItem("1680x1050", lambda: self.change_resolution((1680, 1050))),
             pystray.MenuItem("1280x720", lambda: self.change_resolution((1280, 720))),
             pystray.MenuItem("Quit", self.on_quit),
         )
