@@ -59,6 +59,14 @@ class ResolutionChanger:
         if len(self.get_previous_resolution()) == 2:
             self.change_resolution(self.get_previous_resolution())
 
+    def notify_resolution(self):
+        """
+        Pops up a notification with the current resolution
+        :return: None
+        """
+        resolution = self.get_current_resolution()
+        self.icon.notify(f"{resolution[0]}x{resolution[1]}")
+
     def on_quit(self):
         """
         Quits the programs main loop
