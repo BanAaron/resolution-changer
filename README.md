@@ -10,3 +10,5 @@ Right click to open the menu and select the desired resolution.
 ![resolution selection menu](https://i.imgur.com/mbYip3j.png)
 
 You can left-click the tray icon to switch between the current and previously selected resolution.
+
+`<<<<<<:>~`
