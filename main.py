@@ -8,11 +8,11 @@ class ResolutionChanger:
         import win32con
         import pystray
 
-        self.py_win_types = pywintypes
+        self.win_types = pywintypes
         self.screen_info = screeninfo
         self.win_32_api = win32api
         self.win_32_con = win32con
-        self.dev_mode = self.py_win_types.DEVMODEType()
+        self.dev_mode = self.win_types.DEVMODEType()
 
         self.previous_resolution = ()
 
@@ -41,7 +41,7 @@ class ResolutionChanger:
         """
         Change the resolution of the display
         :param resolution: Width and height in pixels
-        :return: None
+        :return: self
         """
         self.set_previous_resolution()
         self.dev_mode.PelsWidth = resolution[0]
@@ -50,26 +50,29 @@ class ResolutionChanger:
             self.win_32_con.DM_PELSWIDTH | self.win_32_con.DM_PELSHEIGHT
         )
         self.win_32_api.ChangeDisplaySettings(self.dev_mode, 0)
+        return self
 
     def toggle_resolution(self):
         """
-        Toggle between the current resolution and the previous selected
-        :return: None
+        toggle between the current resolution and the previous selected
+        :return: self
         """
         if len(self.get_previous_resolution()) == 2:
             self.change_resolution(self.get_previous_resolution())
+        return self
 
     def notify_resolution(self):
         """
-        Pops up a notification with the current resolution
-        :return: None
+        pops up a notification with the current resolution
+        :return: self
         """
         resolution = self.get_current_resolution()
         self.icon.notify(f"{resolution[0]}x{resolution[1]}")
+        return self
 
     def on_quit(self):
         """
-        Quits the programs main loop
+        quits the programs main loop
         :return: None
         """
         self.icon.visible = False
@@ -83,13 +86,6 @@ class ResolutionChanger:
         screen_info = self.screen_info.get_monitors()[0]
         return screen_info.width, screen_info.height
 
-    def set_current_resolution(self):
-        """
-        Unused
-        :return: None
-        """
-        pass
-
     def get_previous_resolution(self) -> tuple:
         """
         Gets the previously set resolution
@@ -100,10 +96,11 @@ class ResolutionChanger:
     def set_previous_resolution(self):
         """
         Sets the previous resolution
-        :return: None
+        :return: self
         """
         screen_info = self.screen_info.get_monitors()[0]
         self.previous_resolution = (screen_info.width, screen_info.height)
+        return self
 
 
 if __name__ == "__main__":
