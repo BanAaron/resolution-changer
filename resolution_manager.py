@@ -54,6 +54,19 @@ class ResolutionManager:
         self.win_32_api.ChangeDisplaySettings(self.dev_mode, 0)
         return self
 
+    def change_refresh_rate(self, refresh_rate: int) -> object:
+        """
+        changes the refresh rate on the primary monitor.
+        @param refresh_rate: desired refresh rate in hertz
+        @return: self
+        """
+        self.dev_mode.DisplayFrequency = refresh_rate
+        self.dev_mode.Fields = (
+            self.win_32_con.DM_DISPLAYFREQUENCY
+        )
+        self.win_32_api.ChangeDisplaySettings(self.dev_mode, 0)
+        return self
+
     def toggle_resolution(self) -> object:
         """
         toggles the resolution between the current resolution and the previously selected
