@@ -49,7 +49,7 @@ class ResolutionManager:
         self.dev_mode.PelsWidth = width
         self.dev_mode.PelsHeight = height
         self.dev_mode.Fields = (
-            self.win_32_con.DM_PELSWIDTH | self.win_32_con.DM_PELSHEIGHT
+                self.win_32_con.DM_PELSWIDTH | self.win_32_con.DM_PELSHEIGHT
         )
         self.win_32_api.ChangeDisplaySettings(self.dev_mode, 0)
         return self

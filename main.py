@@ -1,6 +1,7 @@
-import darkdetect
 import PIL.Image
+import darkdetect
 import pystray
+
 from resolution_manager import ResolutionManager
 
 
