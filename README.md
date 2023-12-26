@@ -9,7 +9,7 @@ This app saves me a bunch of clicks each time I need to change resolution.
 
 Right click to open the menu and select the desired resolution.
 
-![A screenshot of the resolution changer UI. Shows possible resolutions and refresh rates.](img/demo.png
+![A screenshot of the resolution changer UI. Shows possible resolutions and refresh rates.](assets/demo.png
 "Resolution Changer UI")
 
 You can click the tray icon to switch between the current and previously selected resolution.
