@@ -1,9 +1,6 @@
-# pyResolutionChanger
+# Resolution Changer
 
-A simple python tray app to quick switch between display resolutions.
-
-Some games do not support ultra-wide monitors and need the display resolution set to 1920x1080 to function properly.
-This app saves me a bunch of clicks each time I need to change resolution.
+A simple system tray app to quickly switch between display resolutions and refresh rates.
 
 ## How it Works
 
@@ -13,5 +10,3 @@ Right click to open the menu and select the desired resolution.
 "Resolution Changer UI")
 
 You can click the tray icon to switch between the current and previously selected resolution.
-
-`<<<<<<:>~`
