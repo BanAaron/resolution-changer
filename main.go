@@ -3,28 +3,32 @@
 package main
 
 import (
+	"fmt"
+	"github.com/banaaron/resolution-changer/displayManager"
+	"github.com/gen2brain/beeep"
 	"github.com/getlantern/systray"
 	"log/slog"
 	"os"
 )
 
-func getIcon(fileLocation string) []byte {
-	b, err := os.ReadFile(fileLocation)
+func panicError(err error) {
 	if err != nil {
-		slog.Error("%v", err)
+		panic(err)
 	}
-	return b
 }
 
-func changeResolution(width int, height int) {
-	slog.Info("changeResolution", "width", width, "height", height)
-}
-
-func changeRefreshRate(refreshRate int) {
-	slog.Info("changeRefreshRate", "refreshRate", refreshRate)
+func getIcon(fileLocation string) []byte {
+	slog.Info("getting icon")
+	iconBytes, err := os.ReadFile(fileLocation)
+	if err != nil {
+		slog.Error("failed to load icon", "error:", err)
+	}
+	return iconBytes
 }
 
 func onReady() {
+	slog.Info("onReady")
+
 	appName := "Resolution Changer"
 	icon := getIcon("assets/icon_ico.ico")
 	systray.SetIcon(icon)
@@ -41,29 +45,70 @@ func onReady() {
 	_120 := refreshRate.AddSubMenuItem("120hz", "120")
 	_75 := refreshRate.AddSubMenuItem("75hz", "75")
 	_60 := refreshRate.AddSubMenuItem("60hz", "60")
+	// separator
+	systray.AddSeparator()
 	// exit
 	quit := systray.AddMenuItem("Exit", "exit")
 
 	// create a goroutine
 	go func() {
+		var err error
 		// infinite loop
 		for {
 			// select listens for all channels
 			select {
 			case <-_3840x1080.ClickedCh:
-				changeResolution(3840, 1080)
+				err = displayManager.ChangeResolution(3840, 1080)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					panicError(err)
+				}
 			case <-_2560x1080.ClickedCh:
-				changeResolution(2560, 1080)
+				err = displayManager.ChangeResolution(2560, 1080)
+
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					panicError(err)
+				}
 			case <-_1920x1080.ClickedCh:
-				changeResolution(1920, 1080)
+				err = displayManager.ChangeResolution(1920, 1080)
+				panicError(err)
+
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					panicError(err)
+				}
 			case <-_144.ClickedCh:
-				changeRefreshRate(144)
+				err = displayManager.ChangeRefreshRate(144)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					panicError(err)
+				}
 			case <-_120.ClickedCh:
-				changeRefreshRate(120)
+				err = displayManager.ChangeRefreshRate(120)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					panicError(err)
+				}
 			case <-_75.ClickedCh:
-				changeRefreshRate(75)
+				err = displayManager.ChangeRefreshRate(75)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					panicError(err)
+				}
 			case <-_60.ClickedCh:
-				changeRefreshRate(60)
+				err = displayManager.ChangeRefreshRate(60)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					panicError(err)
+				}
 			case <-quit.ClickedCh:
 				systray.Quit()
 			}
