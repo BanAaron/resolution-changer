@@ -30,7 +30,9 @@ func onReady() {
 	slog.Info("onReady")
 
 	appName := "Resolution Changer"
-	icon := getIcon("assets/icon_ico.ico")
+	iconLocation := "assets/icon_ico.ico"
+
+	icon := getIcon(iconLocation)
 	systray.SetIcon(icon)
 	systray.SetTitle(appName)
 	systray.SetTooltip(appName)
@@ -61,52 +63,49 @@ func onReady() {
 				err = displayManager.ChangeResolution(3840, 1080)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_2560x1080.ClickedCh:
 				err = displayManager.ChangeResolution(2560, 1080)
-
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_1920x1080.ClickedCh:
 				err = displayManager.ChangeResolution(1920, 1080)
-				panicError(err)
-
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_144.ClickedCh:
 				err = displayManager.ChangeRefreshRate(144)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_120.ClickedCh:
 				err = displayManager.ChangeRefreshRate(120)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_75.ClickedCh:
 				err = displayManager.ChangeRefreshRate(75)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_60.ClickedCh:
 				err = displayManager.ChangeRefreshRate(60)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, "assets/icon_ico.ico")
+					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-quit.ClickedCh:
