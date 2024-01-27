@@ -57,6 +57,14 @@ type devmode struct {
 	DmPanningHeight    uint32
 }
 
+// Resolution is the Width and Height in pixels
+type Resolution struct {
+	Width, Height uint32
+}
+
+// refreshRate is the refresh rate in hz per second
+type refreshRate uint32
+
 var (
 	user32dll                  = syscall.NewLazyDLL("user32.dll")
 	procEnumDisplaySettingsW   = user32dll.NewProc("EnumDisplaySettingsW")
@@ -64,47 +72,48 @@ var (
 	devMode                    = new(devmode)
 )
 
-func ChangeResolution(width uint32, height uint32) (err error) {
-	slog.Info("changeResolution", "width", width, "height", height)
-
+func ChangeResolution(res Resolution) error {
+	var err error
+	slog.Info("changeResolution", "Width", res.Width, "Height", res.Height)
 	// get the display information
 	response, _, _ := procEnumDisplaySettingsW.Call(uintptr(unsafe.Pointer(nil)), uintptr(ENUM_CURRENT_SETTINGS), uintptr(unsafe.Pointer(devMode)))
 	if response == 0 {
-		err = fmt.Errorf("could not extract display settings\n")
-		return
+		err = fmt.Errorf("could not extract display settings")
+		return err
 	}
 
-	// change the display resolution
+	// change the display Resolution
 	newMode := *devMode
-	newMode.DmPelsWidth = width
-	newMode.DmPelsHeight = height
+	newMode.DmPelsWidth = res.Width
+	newMode.DmPelsHeight = res.Height
 	response, _, _ = procChangeDisplaySettingsW.Call(uintptr(unsafe.Pointer(&newMode)), uintptr(0))
 
 	switch response {
 	case uintptr(DISP_CHANGE_SUCCESSFUL):
-		slog.Info("successfully changed the display resolution")
+		slog.Info("successfully changed the display Resolution")
 	case uintptr(DISP_CHANGE_RESTART):
-		slog.Info("restart required to apply the resolution changes")
+		slog.Info("restart required to apply the Resolution changes")
 	case uintptr(DISP_CHANGE_BADMODE):
-		slog.Error("the resolution is not supported by the display")
+		slog.Error("the Resolution is not supported by the display")
 	case uintptr(DISP_CHANGE_FAILED):
-		slog.Error("failed to change the display resolution")
+		slog.Error("failed to change the display Resolution")
 	}
 
-	return
+	return err
 }
 
-func ChangeRefreshRate(refreshRate uint32) (err error) {
+func ChangeRefreshRate(refreshRate refreshRate) error {
+	var err error
 	slog.Info("ChangeRefreshRate", "refreshRate", refreshRate)
 	// get the display information
 	response, _, _ := procEnumDisplaySettingsW.Call(uintptr(unsafe.Pointer(nil)), uintptr(ENUM_CURRENT_SETTINGS), uintptr(unsafe.Pointer(devMode)))
 	if response == 0 {
-		err = fmt.Errorf("could not extract display settings\n")
-		return
+		err = fmt.Errorf("could not extract display settings")
+		return err
 	}
-	// change the display resolution
+	// change the display Resolution
 	newMode := *devMode
-	newMode.DmDisplayFrequency = refreshRate
+	newMode.DmDisplayFrequency = uint32(refreshRate)
 	response, _, _ = procChangeDisplaySettingsW.Call(uintptr(unsafe.Pointer(&newMode)), uintptr(0))
 
 	switch response {
@@ -113,10 +122,10 @@ func ChangeRefreshRate(refreshRate uint32) (err error) {
 	case uintptr(DISP_CHANGE_RESTART):
 		slog.Info("restart required to apply the refresh rate changes")
 	case uintptr(DISP_CHANGE_BADMODE):
-		err = fmt.Errorf("the refresh rate is not supported by the display\n")
+		err = fmt.Errorf("the refresh rate is not supported by the display")
 	case uintptr(DISP_CHANGE_FAILED):
-		err = fmt.Errorf("failed to change the display refresh rate\n")
+		err = fmt.Errorf("failed to change the display refresh rate")
 	}
 
-	return
+	return err
 }
