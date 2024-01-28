@@ -62,8 +62,8 @@ type Resolution struct {
 	Width, Height uint32
 }
 
-// refreshRate is the refresh rate in hz per second
-type refreshRate uint32
+// RefreshRate is the refresh rate in hz per second
+type RefreshRate uint32
 
 var (
 	user32dll                  = syscall.NewLazyDLL("user32.dll")
@@ -102,9 +102,9 @@ func ChangeResolution(res Resolution) error {
 	return err
 }
 
-func ChangeRefreshRate(refreshRate refreshRate) error {
+func ChangeRefreshRate(refreshRate RefreshRate) error {
 	var err error
-	slog.Info("ChangeRefreshRate", "refreshRate", refreshRate)
+	slog.Info("ChangeRefreshRate", "RefreshRate", refreshRate)
 	// get the display information
 	response, _, _ := procEnumDisplaySettingsW.Call(uintptr(unsafe.Pointer(nil)), uintptr(ENUM_CURRENT_SETTINGS), uintptr(unsafe.Pointer(devMode)))
 	if response == 0 {

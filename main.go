@@ -66,35 +66,38 @@ func onReady() {
 					panicError(err)
 				}
 			case <-_2560x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{2560, 1080})
+				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 2560, Height: 1080})
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
 					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_1920x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{1920, 1080})
+				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 1920, Height: 1080})
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
 					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_144.ClickedCh:
-				err = displayManager.ChangeRefreshRate(144)
+				rf := displayManager.RefreshRate(144)
+				err = displayManager.ChangeRefreshRate(rf)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
 					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_120.ClickedCh:
-				err = displayManager.ChangeRefreshRate(120)
+				rf := displayManager.RefreshRate(120)
+				err = displayManager.ChangeRefreshRate(rf)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
 					err = beeep.Notify("Error", errorString, iconLocation)
 					panicError(err)
 				}
 			case <-_60.ClickedCh:
-				err = displayManager.ChangeRefreshRate(60)
+				rf := displayManager.RefreshRate(60)
+				err = displayManager.ChangeRefreshRate(rf)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
 					err = beeep.Notify("Error", errorString, iconLocation)
