@@ -75,30 +75,49 @@ var (
 func ChangeResolution(res Resolution) error {
 	var err error
 	slog.Info("changeResolution", "Width", res.Width, "Height", res.Height)
-	// get the display information
-	response, _, _ := procEnumDisplaySettingsW.Call(uintptr(unsafe.Pointer(nil)), uintptr(ENUM_CURRENT_SETTINGS), uintptr(unsafe.Pointer(devMode)))
-	if response == 0 {
-		err = fmt.Errorf("could not extract display settings")
-		return err
+
+	var mode devmode
+	mode.DmSize = uint16(unsafe.Sizeof(mode))
+
+	// get available resolutions
+	for i := 0; ; i++ {
+		response, _, _ := procEnumDisplaySettingsW.Call(
+			uintptr(unsafe.Pointer(nil)),
+			uintptr(i),
+			uintptr(unsafe.Pointer(&mode)),
+		)
+		if response == 0 {
+			break
+		}
+
+		if mode.DmPelsWidth == res.Width && mode.DmPelsHeight == res.Height {
+			// found a matching mode; try to set it
+			response, _, _ = procChangeDisplaySettingsW.Call(
+				uintptr(unsafe.Pointer(&mode)),
+				uintptr(0),
+			)
+
+			switch response {
+			case uintptr(DISP_CHANGE_SUCCESSFUL):
+				slog.Info("successfully changed the display Resolution")
+			case uintptr(DISP_CHANGE_RESTART):
+				slog.Info("restart required to apply the Resolution changes")
+				err = fmt.Errorf("restart required to apply resolution %dx%d", res.Width, res.Height)
+			case uintptr(DISP_CHANGE_BADMODE):
+				slog.Error("the Resolution is not supported by the display")
+				err = fmt.Errorf("the Resolution %dx%d is not supported by the display (BADMODE)", res.Width, res.Height)
+			case uintptr(DISP_CHANGE_FAILED):
+				slog.Error("failed to change the display Resolution")
+				err = fmt.Errorf("failed to change the display Resolution to %dx%d (FAILED)", res.Width, res.Height)
+			default:
+				err = fmt.Errorf("ChangeDisplaySettingsW returned unexpected code: %d", response)
+			}
+
+			return err
+		}
 	}
 
-	// change the display Resolution
-	newMode := *devMode
-	newMode.DmPelsWidth = res.Width
-	newMode.DmPelsHeight = res.Height
-	response, _, _ = procChangeDisplaySettingsW.Call(uintptr(unsafe.Pointer(&newMode)), uintptr(0))
-
-	switch response {
-	case uintptr(DISP_CHANGE_SUCCESSFUL):
-		slog.Info("successfully changed the display Resolution")
-	case uintptr(DISP_CHANGE_RESTART):
-		slog.Info("restart required to apply the Resolution changes")
-	case uintptr(DISP_CHANGE_BADMODE):
-		slog.Error("the Resolution is not supported by the display")
-	case uintptr(DISP_CHANGE_FAILED):
-		slog.Error("failed to change the display Resolution")
-	}
-
+	err = fmt.Errorf("resolution %dx%d not found in EnumDisplaySettingsW", res.Width, res.Height)
 	return err
 }
 
