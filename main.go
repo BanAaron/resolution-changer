@@ -37,75 +37,91 @@ func onReady() {
 	systray.SetTitle(appName)
 	systray.SetTooltip(appName)
 
-	// resolutions
-	_3840x1080 := systray.AddMenuItem("3840x1080 (32:9)", "3840x1080")
-	_2560x1080 := systray.AddMenuItem("2560x1080 (21:9)", "2560x1080")
-	_1920x1080 := systray.AddMenuItem("1920x1080 (16:9)", "1920x1080")
-	// refresh rates
-	refreshRate := systray.AddMenuItem("Refresh Rate", "refresh rate")
-	_144 := refreshRate.AddSubMenuItem("144hz", "144")
-	_120 := refreshRate.AddSubMenuItem("120hz", "120")
-	_60 := refreshRate.AddSubMenuItem("60hz", "60")
-	// separator
+	cfg, err := loadConfig("config.ini")
+	if err != nil {
+		slog.Warn("using built-in defaults; failed to load config.ini", "err", err)
+		cfg = AppConfig{
+			Resolutions: []displayManager.Resolution{
+				{Width: 2560, Height: 1600},
+				{Width: 2560, Height: 1440},
+			},
+			RefreshRates: []displayManager.RefreshRate{
+				240,
+				60,
+			},
+		}
+	}
+
+	type resMenu struct {
+		item *systray.MenuItem
+		res  displayManager.Resolution
+	}
+	type rateMenu struct {
+		item *systray.MenuItem
+		rate displayManager.RefreshRate
+	}
+
+	var resMenus []resMenu
+	for _, r := range cfg.Resolutions {
+		label := fmt.Sprintf("%dx%d", r.Width, r.Height)
+		item := systray.AddMenuItem(label, label)
+		resMenus = append(resMenus, resMenu{
+			item: item,
+			res:  r,
+		})
+	}
+
 	systray.AddSeparator()
-	// exit
+
+	var rateMenus []rateMenu
+	for _, hz := range cfg.RefreshRates {
+		label := fmt.Sprintf("%dhz", hz)
+		item := systray.AddMenuItem(label, label)
+		rateMenus = append(rateMenus, rateMenu{
+			item: item,
+			rate: hz,
+		})
+	}
+
+	systray.AddSeparator()
 	quit := systray.AddMenuItem("Exit", "exit")
 
-	// create a goroutine
-	go func() {
-		var err error
-		// infinite loop
-		for {
-			// select listens for all channels
-			select {
-			case <-_3840x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 3840, Height: 1080})
+	// handlers for resolution items
+	for _, rm := range resMenus {
+		rm := rm // capture
+		go func() {
+			for range rm.item.ClickedCh {
+				err := displayManager.ChangeResolution(rm.res)
 				if err != nil {
 					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
+					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
+						panicError(nErr)
+					}
 				}
-			case <-_2560x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 2560, Height: 1080})
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_1920x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 1920, Height: 1080})
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_144.ClickedCh:
-				rf := displayManager.RefreshRate(144)
-				err = displayManager.ChangeRefreshRate(rf)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_120.ClickedCh:
-				rf := displayManager.RefreshRate(120)
-				err = displayManager.ChangeRefreshRate(rf)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_60.ClickedCh:
-				rf := displayManager.RefreshRate(60)
-				err = displayManager.ChangeRefreshRate(rf)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-quit.ClickedCh:
-				systray.Quit()
 			}
+		}()
+	}
+
+	// handlers for refresh rate items
+	for _, hm := range rateMenus {
+		hm := hm // capture
+		go func() {
+			for range hm.item.ClickedCh {
+				err := displayManager.ChangeRefreshRate(hm.rate)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
+						panicError(nErr)
+					}
+				}
+			}
+		}()
+	}
+
+	// quit handler
+	go func() {
+		for range quit.ClickedCh {
+			systray.Quit()
 		}
 	}()
 }
