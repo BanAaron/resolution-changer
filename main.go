@@ -9,7 +9,53 @@ import (
 	"github.com/getlantern/systray"
 	"log/slog"
 	"os"
+	"sync"
+	"time"
 )
+
+type resMenu struct {
+	item *systray.MenuItem
+	res  displayManager.Resolution
+}
+
+type rateMenu struct {
+	item *systray.MenuItem
+	rate displayManager.RefreshRate
+}
+
+var (
+	resMenus  []resMenu
+	rateMenus []rateMenu
+
+	currentRes  displayManager.Resolution
+	currentRate displayManager.RefreshRate
+
+	stateMu sync.Mutex
+)
+
+func applyDisplayInfo(di displayManager.DisplayInfo) {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+
+	for _, rm := range resMenus {
+		if rm.res.Width == di.Resolution.Width && rm.res.Height == di.Resolution.Height {
+			rm.item.Check()
+		} else {
+			rm.item.Uncheck()
+		}
+	}
+
+	for _, hm := range rateMenus {
+		if hm.rate == di.Refresh {
+			hm.item.Check()
+		} else {
+			hm.item.Uncheck()
+		}
+	}
+
+	currentRes = di.Resolution
+	currentRate = di.Refresh
+}
 
 func panicError(err error) {
 	if err != nil {
@@ -37,74 +83,122 @@ func onReady() {
 	systray.SetTitle(appName)
 	systray.SetTooltip(appName)
 
-	// resolutions
-	_3840x1080 := systray.AddMenuItem("3840x1080 (32:9)", "3840x1080")
-	_2560x1080 := systray.AddMenuItem("2560x1080 (21:9)", "2560x1080")
-	_1920x1080 := systray.AddMenuItem("1920x1080 (16:9)", "1920x1080")
-	// refresh rates
-	refreshRate := systray.AddMenuItem("Refresh Rate", "refresh rate")
-	_144 := refreshRate.AddSubMenuItem("144hz", "144")
-	_120 := refreshRate.AddSubMenuItem("120hz", "120")
-	_60 := refreshRate.AddSubMenuItem("60hz", "60")
-	// separator
+	cfg, err := loadConfig("config.ini")
+	if err != nil {
+		slog.Warn("using built-in defaults; failed to load config.ini", "err", err)
+		cfg = AppConfig{
+			Resolutions: []displayManager.Resolution{
+				{Width: 2560, Height: 1600},
+				{Width: 2560, Height: 1440},
+			},
+			RefreshRates: []displayManager.RefreshRate{
+				240,
+				60,
+			},
+		}
+	}
+
+	// build resolution menu
+	resMenus = nil
+	for _, r := range cfg.Resolutions {
+		label := fmt.Sprintf("%dx%d", r.Width, r.Height)
+		item := systray.AddMenuItem(label, label)
+		resMenus = append(resMenus, resMenu{
+			item: item,
+			res:  r,
+		})
+	}
+
 	systray.AddSeparator()
-	// exit
+
+	// build refresh rate menu
+	rateMenus = nil
+	for _, hz := range cfg.RefreshRates {
+		label := fmt.Sprintf("%dhz", hz)
+		item := systray.AddMenuItem(label, label)
+		rateMenus = append(rateMenus, rateMenu{
+			item: item,
+			rate: hz,
+		})
+	}
+
+	systray.AddSeparator()
 	quit := systray.AddMenuItem("Exit", "exit")
 
-	// create a goroutine
+	// initial state: mark current res / Hz
+	if di, err := displayManager.GetCurrentDisplay(); err != nil {
+		slog.Error("GetCurrentDisplay failed", "err", err)
+	} else {
+		applyDisplayInfo(di)
+	}
+
+	// resolution handlers
+	for _, rm := range resMenus {
+		rm := rm
+		go func() {
+			for range rm.item.ClickedCh {
+				err := displayManager.ChangeResolution(rm.res)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
+						panicError(nErr)
+					}
+					continue
+				}
+
+				if di, e := displayManager.GetCurrentDisplay(); e == nil {
+					applyDisplayInfo(di)
+				}
+			}
+		}()
+	}
+
+	// refresh rate handlers
+	for _, hm := range rateMenus {
+		hm := hm
+		go func() {
+			for range hm.item.ClickedCh {
+				err := displayManager.ChangeRefreshRate(hm.rate)
+				if err != nil {
+					errorString := fmt.Sprintf("%v", err)
+					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
+						panicError(nErr)
+					}
+					continue
+				}
+
+				if di, e := displayManager.GetCurrentDisplay(); e == nil {
+					applyDisplayInfo(di)
+				}
+			}
+		}()
+	}
+
+	// quit handler
 	go func() {
-		var err error
-		// infinite loop
+		for range quit.ClickedCh {
+			systray.Quit()
+		}
+	}()
+
+	// "listener": poll for external changes every few seconds
+	go func() {
 		for {
-			// select listens for all channels
-			select {
-			case <-_3840x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 3840, Height: 1080})
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_2560x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 2560, Height: 1080})
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_1920x1080.ClickedCh:
-				err = displayManager.ChangeResolution(displayManager.Resolution{Width: 1920, Height: 1080})
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_144.ClickedCh:
-				rf := displayManager.RefreshRate(144)
-				err = displayManager.ChangeRefreshRate(rf)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_120.ClickedCh:
-				rf := displayManager.RefreshRate(120)
-				err = displayManager.ChangeRefreshRate(rf)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-_60.ClickedCh:
-				rf := displayManager.RefreshRate(60)
-				err = displayManager.ChangeRefreshRate(rf)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					err = beeep.Notify("Error", errorString, iconLocation)
-					panicError(err)
-				}
-			case <-quit.ClickedCh:
-				systray.Quit()
+			time.Sleep(2 * time.Second)
+
+			di, err := displayManager.GetCurrentDisplay()
+			if err != nil {
+				continue
+			}
+
+			stateMu.Lock()
+			same := di.Resolution.Width == currentRes.Width &&
+				di.Resolution.Height == currentRes.Height &&
+				di.Refresh == currentRate
+			stateMu.Unlock()
+
+			if !same {
+				applyDisplayInfo(di)
 			}
 		}
 	}()

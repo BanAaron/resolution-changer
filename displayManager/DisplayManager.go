@@ -16,6 +16,7 @@ const (
 	DISP_CHANGE_RESTART    uint32 = 1
 	DISP_CHANGE_FAILED     uint32 = 0xFFFFFFFF
 	DISP_CHANGE_BADMODE    uint32 = 0xFFFFFFFE
+	CDS_UPDATEREGISTRY     uint32 = 0x00000001
 )
 
 // devmode is a structure used to specify characteristics
@@ -65,6 +66,11 @@ type Resolution struct {
 // RefreshRate is the refresh rate in hz per second
 type RefreshRate uint32
 
+type DisplayInfo struct {
+	Resolution
+	Refresh RefreshRate
+}
+
 var (
 	user32dll                  = syscall.NewLazyDLL("user32.dll")
 	procEnumDisplaySettingsW   = user32dll.NewProc("EnumDisplaySettingsW")
@@ -72,14 +78,74 @@ var (
 	devMode                    = new(devmode)
 )
 
+func GetCurrentDisplay() (DisplayInfo, error) {
+	var dm devmode
+	dm.DmSize = uint16(unsafe.Sizeof(dm))
+
+	response, _, _ := procEnumDisplaySettingsW.Call(
+		uintptr(unsafe.Pointer(nil)),
+		uintptr(ENUM_CURRENT_SETTINGS),
+		uintptr(unsafe.Pointer(&dm)),
+	)
+	if response == 0 {
+		return DisplayInfo{}, fmt.Errorf("could not extract display settings")
+	}
+
+	return DisplayInfo{
+		Resolution: Resolution{
+			Width:  dm.DmPelsWidth,
+			Height: dm.DmPelsHeight,
+		},
+		Refresh: RefreshRate(dm.DmDisplayFrequency),
+	}, nil
+}
+
 func ChangeResolution(res Resolution) error {
 	var err error
 	slog.Info("changeResolution", "Width", res.Width, "Height", res.Height)
 
+	// get current display settings (to read current refresh rate)
+	var current devmode
+	current.DmSize = uint16(unsafe.Sizeof(current))
+	response, _, _ := procEnumDisplaySettingsW.Call(
+		uintptr(unsafe.Pointer(nil)),
+		uintptr(ENUM_CURRENT_SETTINGS),
+		uintptr(unsafe.Pointer(&current)),
+	)
+	if response == 0 {
+		return fmt.Errorf("could not extract display settings")
+	}
+	currentHz := current.DmDisplayFrequency
+
+	// helper to apply a mode
+	applyMode := func(m *devmode) error {
+		response, _, _ := procChangeDisplaySettingsW.Call(
+			uintptr(unsafe.Pointer(m)),
+			uintptr(CDS_UPDATEREGISTRY),
+		)
+
+		switch response {
+		case uintptr(DISP_CHANGE_SUCCESSFUL):
+			slog.Info("successfully changed the display Resolution")
+			return nil
+		case uintptr(DISP_CHANGE_RESTART):
+			slog.Info("restart required to apply the Resolution changes")
+			return fmt.Errorf("restart required to apply resolution %dx%d", res.Width, res.Height)
+		case uintptr(DISP_CHANGE_BADMODE):
+			slog.Error("the Resolution is not supported by the display")
+			return fmt.Errorf("the Resolution %dx%d is not supported by the display (BADMODE)", res.Width, res.Height)
+		case uintptr(DISP_CHANGE_FAILED):
+			slog.Error("failed to change the display Resolution")
+			return fmt.Errorf("failed to change the display Resolution to %dx%d (FAILED)", res.Width, res.Height)
+		default:
+			return fmt.Errorf("ChangeDisplaySettingsW returned unexpected code: %d", response)
+		}
+	}
+
 	var mode devmode
 	mode.DmSize = uint16(unsafe.Sizeof(mode))
 
-	// get available resolutions
+	// first try: match Resolution + RefreshRate
 	for i := 0; ; i++ {
 		response, _, _ := procEnumDisplaySettingsW.Call(
 			uintptr(unsafe.Pointer(nil)),
@@ -90,30 +156,28 @@ func ChangeResolution(res Resolution) error {
 			break
 		}
 
-		if mode.DmPelsWidth == res.Width && mode.DmPelsHeight == res.Height {
-			// found a matching mode; try to set it
-			response, _, _ = procChangeDisplaySettingsW.Call(
-				uintptr(unsafe.Pointer(&mode)),
-				uintptr(0),
-			)
+		if mode.DmPelsWidth == res.Width &&
+			mode.DmPelsHeight == res.Height &&
+			mode.DmDisplayFrequency == currentHz {
+			return applyMode(&mode)
+		}
+	}
 
-			switch response {
-			case uintptr(DISP_CHANGE_SUCCESSFUL):
-				slog.Info("successfully changed the display Resolution")
-			case uintptr(DISP_CHANGE_RESTART):
-				slog.Info("restart required to apply the Resolution changes")
-				err = fmt.Errorf("restart required to apply resolution %dx%d", res.Width, res.Height)
-			case uintptr(DISP_CHANGE_BADMODE):
-				slog.Error("the Resolution is not supported by the display")
-				err = fmt.Errorf("the Resolution %dx%d is not supported by the display (BADMODE)", res.Width, res.Height)
-			case uintptr(DISP_CHANGE_FAILED):
-				slog.Error("failed to change the display Resolution")
-				err = fmt.Errorf("failed to change the display Resolution to %dx%d (FAILED)", res.Width, res.Height)
-			default:
-				err = fmt.Errorf("ChangeDisplaySettingsW returned unexpected code: %d", response)
-			}
+	// fallback: Resolution only if no Hz match
+	mode.DmSize = uint16(unsafe.Sizeof(mode))
+	for i := 0; ; i++ {
+		response, _, _ := procEnumDisplaySettingsW.Call(
+			uintptr(unsafe.Pointer(nil)),
+			uintptr(i),
+			uintptr(unsafe.Pointer(&mode)),
+		)
+		if response == 0 {
+			break
+		}
 
-			return err
+		if mode.DmPelsWidth == res.Width &&
+			mode.DmPelsHeight == res.Height {
+			return applyMode(&mode)
 		}
 	}
 
