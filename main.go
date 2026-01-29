@@ -9,7 +9,53 @@ import (
 	"github.com/getlantern/systray"
 	"log/slog"
 	"os"
+	"sync"
+	"time"
 )
+
+type resMenu struct {
+	item *systray.MenuItem
+	res  displayManager.Resolution
+}
+
+type rateMenu struct {
+	item *systray.MenuItem
+	rate displayManager.RefreshRate
+}
+
+var (
+	resMenus  []resMenu
+	rateMenus []rateMenu
+
+	currentRes  displayManager.Resolution
+	currentRate displayManager.RefreshRate
+
+	stateMu sync.Mutex
+)
+
+func applyDisplayInfo(di displayManager.DisplayInfo) {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+
+	for _, rm := range resMenus {
+		if rm.res.Width == di.Resolution.Width && rm.res.Height == di.Resolution.Height {
+			rm.item.Check()
+		} else {
+			rm.item.Uncheck()
+		}
+	}
+
+	for _, hm := range rateMenus {
+		if hm.rate == di.Refresh {
+			hm.item.Check()
+		} else {
+			hm.item.Uncheck()
+		}
+	}
+
+	currentRes = di.Resolution
+	currentRate = di.Refresh
+}
 
 func panicError(err error) {
 	if err != nil {
@@ -52,16 +98,8 @@ func onReady() {
 		}
 	}
 
-	type resMenu struct {
-		item *systray.MenuItem
-		res  displayManager.Resolution
-	}
-	type rateMenu struct {
-		item *systray.MenuItem
-		rate displayManager.RefreshRate
-	}
-
-	var resMenus []resMenu
+	// build resolution menu
+	resMenus = nil
 	for _, r := range cfg.Resolutions {
 		label := fmt.Sprintf("%dx%d", r.Width, r.Height)
 		item := systray.AddMenuItem(label, label)
@@ -73,7 +111,8 @@ func onReady() {
 
 	systray.AddSeparator()
 
-	var rateMenus []rateMenu
+	// build refresh rate menu
+	rateMenus = nil
 	for _, hz := range cfg.RefreshRates {
 		label := fmt.Sprintf("%dhz", hz)
 		item := systray.AddMenuItem(label, label)
@@ -86,9 +125,16 @@ func onReady() {
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Exit", "exit")
 
-	// handlers for resolution items
+	// initial state: mark current res / Hz
+	if di, err := displayManager.GetCurrentDisplay(); err != nil {
+		slog.Error("GetCurrentDisplay failed", "err", err)
+	} else {
+		applyDisplayInfo(di)
+	}
+
+	// resolution handlers
 	for _, rm := range resMenus {
-		rm := rm // capture
+		rm := rm
 		go func() {
 			for range rm.item.ClickedCh {
 				err := displayManager.ChangeResolution(rm.res)
@@ -97,14 +143,19 @@ func onReady() {
 					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
 						panicError(nErr)
 					}
+					continue
+				}
+
+				if di, e := displayManager.GetCurrentDisplay(); e == nil {
+					applyDisplayInfo(di)
 				}
 			}
 		}()
 	}
 
-	// handlers for refresh rate items
+	// refresh rate handlers
 	for _, hm := range rateMenus {
-		hm := hm // capture
+		hm := hm
 		go func() {
 			for range hm.item.ClickedCh {
 				err := displayManager.ChangeRefreshRate(hm.rate)
@@ -113,6 +164,11 @@ func onReady() {
 					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
 						panicError(nErr)
 					}
+					continue
+				}
+
+				if di, e := displayManager.GetCurrentDisplay(); e == nil {
+					applyDisplayInfo(di)
 				}
 			}
 		}()
@@ -122,6 +178,28 @@ func onReady() {
 	go func() {
 		for range quit.ClickedCh {
 			systray.Quit()
+		}
+	}()
+
+	// "listener": poll for external changes every few seconds
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+
+			di, err := displayManager.GetCurrentDisplay()
+			if err != nil {
+				continue
+			}
+
+			stateMu.Lock()
+			same := di.Resolution.Width == currentRes.Width &&
+				di.Resolution.Height == currentRes.Height &&
+				di.Refresh == currentRate
+			stateMu.Unlock()
+
+			if !same {
+				applyDisplayInfo(di)
+			}
 		}
 	}()
 }
